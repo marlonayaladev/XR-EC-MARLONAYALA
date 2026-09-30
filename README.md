@@ -8,15 +8,11 @@ Extendida (XR) para Videojuegos**, docente *Victor Alejandro Arroyo Castro*.
 | Dato | Valor |
 |------|-------|
 | Estudiante | Marlon Ayala |
-| Código de estudiante | **PENDIENTE** (`[CODIGO]`) |
+| Código de estudiante | 2221899372 |
 | Repositorio GitHub | [github.com/marlonayaladev/XR-EC-MARLONAYALA](https://github.com/marlonayaladev/XR-EC-MARLONAYALA) |
 | Escena principal | `Assets/Scenes/EC_XR_MARLONAYALA.unity` |
 | Versión de Unity | 6000.3.10f1 (URP) |
-| Enlace a video (≤ 1 min) | **PENDIENTE** |
 
-> Reemplaza `[CODIGO]` y el enlace de video antes de entregar.
-
----
 
 ## Paquetes instalados (versiones reales de `Packages/manifest.json`)
 
@@ -108,18 +104,9 @@ Las 3 capturas obligatorias van en la carpeta [`Capturas/`](Capturas/):
 | `inspector.png` | Componentes XR en el Inspector |
 | `interaccion.png` | Una interacción funcionando (rayo encendiendo la luz) |
 
-> **Estado: PENDIENTE** — tomar manualmente desde el Editor (ver `Capturas/README.md`).
 
 ---
 
-## Video demostrativo
-
-**PENDIENTE** — enlace a video de ≤ 1 minuto mostrando:
-1. Agarrar y lanzar un objeto con el grip.
-2. Activar `Boton_Luz` con el trigger (el contador sube).
-3. Teletransportarse en el piso.
-
----
 
 ## Cómo abrir y ejecutar
 
