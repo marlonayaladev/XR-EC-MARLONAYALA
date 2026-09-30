@@ -44,8 +44,9 @@ namespace XRChallenge
             InstanciarRig();
             CrearInteractionManager();
             CrearEventSystem();
+            CrearBotonesInteraccion();
 
-            // Etapas 4 y 5 (añadidas en fases posteriores de este script).
+            // Etapa 5 (añadida en la fase siguiente).
 
             GuardarEscena(escena);
         }
@@ -199,6 +200,38 @@ namespace XRChallenge
             grab.throwOnDetach = true;
             grab.trackPosition = true;
             grab.trackRotation = true;
+        }
+
+        // ------------------------------------------------- Etapa 4: rayo (botones)
+
+        // Dos botones con XR Simple Interactable que se activan apuntando con el
+        // rayo (NearFarInteractor). Los eventos selectEntered se conectan por
+        // código mediante los scripts ToggleLuz y CambiarColor (sin tocar Inspector).
+        static void CrearBotonesInteraccion()
+        {
+            // Boton_Luz: enciende/apaga la Point Light 'LuzInteractiva'.
+            var botonLuz = Primitiva(PrimitiveType.Cube, "Boton_Luz", null,
+                new Vector3(-2.2f, 1.6f, 5.82f), new Vector3(0.35f, 0.35f, 0.15f));
+            botonLuz.GetComponent<MeshRenderer>().sharedMaterial =
+                ObtenerMaterial("M_BotonLuz", new Color(0.9f, 0.15f, 0.15f));
+            botonLuz.AddComponent<XRSimpleInteractable>();
+            var toggle = botonLuz.AddComponent<ToggleLuz>();
+            toggle.luz = LuzPuntual; // conexión por código (requisito de la rúbrica)
+
+            // Boton_Color: cambia el color de la Cápsula con MaterialPropertyBlock.
+            var botonColor = Primitiva(PrimitiveType.Cube, "Boton_Color", null,
+                new Vector3(2.2f, 1.6f, 5.82f), new Vector3(0.35f, 0.35f, 0.15f));
+            botonColor.GetComponent<MeshRenderer>().sharedMaterial =
+                ObtenerMaterial("M_BotonColor", new Color(0.1f, 0.7f, 0.9f));
+            botonColor.AddComponent<XRSimpleInteractable>();
+            var cambiar = botonColor.AddComponent<CambiarColor>();
+            var capsula = GameObject.Find("Capsula");
+            if (capsula != null)
+                cambiar.objetivo = capsula.GetComponent<MeshRenderer>(); // conexión por código
+            else
+                Debug.LogWarning("[XRChallenge] No se encontró la Cápsula para Boton_Color.");
+
+            Debug.Log("[XRChallenge] Boton_Luz y Boton_Color creados (XR Simple Interactable conectados por código).");
         }
 
         // ------------------------------------------------------------------- rig
