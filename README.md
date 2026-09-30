@@ -9,12 +9,12 @@ Extendida (XR) para Videojuegos**, docente *Victor Alejandro Arroyo Castro*.
 |------|-------|
 | Estudiante | Marlon Ayala |
 | Código de estudiante | **PENDIENTE** (`[CODIGO]`) |
-| Repositorio GitHub | **PENDIENTE** (`[USUARIO]/[REPO]`) |
+| Repositorio GitHub | [github.com/marlonayaladev/XR-EC-MARLONAYALA](https://github.com/marlonayaladev/XR-EC-MARLONAYALA) |
 | Escena principal | `Assets/Scenes/EC_XR_MARLONAYALA.unity` |
 | Versión de Unity | 6000.3.10f1 (URP) |
 | Enlace a video (≤ 1 min) | **PENDIENTE** |
 
-> Reemplaza `[CODIGO]`, `[USUARIO]/[REPO]` y el enlace de video antes de entregar.
+> Reemplaza `[CODIGO]` y el enlace de video antes de entregar.
 
 ---
 
