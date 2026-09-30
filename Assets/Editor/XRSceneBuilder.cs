@@ -4,15 +4,21 @@
 // Es idempotente: cada ejecución reconstruye la escena desde cero (NewScene),
 // reutiliza los materiales existentes y no duplica la escena en Build Settings.
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
+using UnityEditor.XR.Management;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Rendering;
 using UnityEngine.SceneManagement;
 using UnityEngine.XR.Interaction.Toolkit;
 using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using UnityEngine.XR.Interaction.Toolkit.Locomotion.Teleportation;
 using UnityEngine.XR.Interaction.Toolkit.UI;
+using UnityEngine.XR.Management;
+using TMPro;
 
 namespace XRChallenge
 {
@@ -20,6 +26,16 @@ namespace XRChallenge
     {
         public const string NombreEscena = "EC_XR_MARLONAYALA";
         public static readonly string RutaEscena = "Assets/Scenes/" + NombreEscena + ".unity";
+
+        // Registro compartido de criterios (lo consume Verify()).
+        static readonly List<string> _fallos = new List<string>();
+
+        static void Check(bool ok, string criterio)
+        {
+            Debug.Log($"[CHECK][{(ok ? "PASS" : "FAIL")}] {criterio}");
+            if (!ok)
+                _fallos.Add(criterio);
+        }
 
         // Referencias que usan las etapas posteriores (rayo, contador, teletransporte).
         public static Light LuzPuntual { get; private set; }
@@ -45,8 +61,9 @@ namespace XRChallenge
             CrearInteractionManager();
             CrearEventSystem();
             CrearBotonesInteraccion();
-
-            // Etapa 5 (añadida en la fase siguiente).
+            ConfigurarTeletransporte();
+            CrearContador();
+            CrearSimuladorDispositivo();
 
             GuardarEscena(escena);
         }
@@ -234,6 +251,94 @@ namespace XRChallenge
             Debug.Log("[XRChallenge] Boton_Luz y Boton_Color creados (XR Simple Interactable conectados por código).");
         }
 
+        // ------------------------------------------- Etapa 5: reto libre (teleport)
+
+        // Teleportation Area sobre el piso (capa 'Teleport' = bit 31, igual que el
+        // prefab oficial de Starter Assets) + verificación del Teleportation Provider.
+        static void ConfigurarTeletransporte()
+        {
+            var area = Piso.GetComponent<TeleportationArea>();
+            if (area == null)
+                area = Piso.AddComponent<TeleportationArea>();
+            area.interactionLayers = 1 << 31;
+
+            var proveedor = UnityEngine.Object.FindFirstObjectByType<TeleportationProvider>();
+            if (proveedor == null)
+            {
+                var rig = GameObject.Find("XR Origin (XR Rig)");
+                if (rig != null)
+                    proveedor = rig.AddComponent<TeleportationProvider>();
+            }
+
+            Check(proveedor != null, "Teleportation Provider presente en la escena");
+            Debug.Log("[XRChallenge] Teleportation Area configurado en el piso; Provider = " +
+                      (proveedor != null ? proveedor.name : "NO ENCONTRADO"));
+        }
+
+        // Contador World Space con TextMeshPro: cuántas veces se encendió la luz.
+        // El script ContadorLuces se conecta al ToggleLuz por código.
+        static void CrearContador()
+        {
+            var canvasGo = new GameObject("ContadorLuces");
+            var canvas = canvasGo.AddComponent<Canvas>();
+            canvas.renderMode = RenderMode.WorldSpace;
+            var rect = canvasGo.GetComponent<RectTransform>();
+            rect.sizeDelta = new Vector2(500f, 120f);
+            canvasGo.transform.position = new Vector3(0f, 2.5f, 3.6f);
+            canvasGo.transform.rotation = Quaternion.identity;
+            canvasGo.transform.localScale = Vector3.one * 0.003f; // 1.5 x 0.36 m en el mundo
+
+            var textoGo = new GameObject("TextoContador");
+            textoGo.transform.SetParent(canvasGo.transform, false);
+            var rectTexto = textoGo.AddComponent<RectTransform>();
+            rectTexto.anchorMin = Vector2.zero;
+            rectTexto.anchorMax = Vector2.one;
+            rectTexto.offsetMin = Vector2.zero;
+            rectTexto.offsetMax = Vector2.zero;
+            var texto = textoGo.AddComponent<TextMeshProUGUI>();
+            texto.text = "Veces encendida: 0";
+            texto.fontSize = 72f;
+            texto.alignment = TextAlignmentOptions.Center;
+            texto.color = new Color(1f, 0.95f, 0.4f);
+
+            var contador = canvasGo.AddComponent<ContadorLuces>();
+
+            // Conexión por código: ToggleLuz -> ContadorLuces.
+            var toggle = UnityEngine.Object.FindFirstObjectByType<ToggleLuz>();
+            if (toggle != null)
+                toggle.contador = contador;
+            else
+                Debug.LogWarning("[XRChallenge] No se encontró ToggleLuz para conectar el contador.");
+
+            Debug.Log("[XRChallenge] Contador World Space (TMP) creado y conectado al Boton_Luz.");
+        }
+
+        // XR Device Simulator en la escena para probar sin visor.
+        static void CrearSimuladorDispositivo()
+        {
+            string ruta = null;
+            foreach (string guid in AssetDatabase.FindAssets("XR Device Simulator t:Prefab"))
+            {
+                string r = AssetDatabase.GUIDToAssetPath(guid);
+                if (System.IO.Path.GetFileNameWithoutExtension(r) == "XR Device Simulator")
+                {
+                    ruta = r;
+                    break;
+                }
+            }
+            if (ruta == null)
+            {
+                Debug.LogWarning("[XRChallenge] Prefab 'XR Device Simulator' no encontrado (¿sample importado?).");
+                return;
+            }
+
+            var simulador = PrefabUtility.InstantiatePrefab(
+                AssetDatabase.LoadAssetAtPath<GameObject>(ruta)) as GameObject;
+            simulador.name = "XR Device Simulator";
+            simulador.transform.position = Vector3.zero;
+            Debug.Log("[XRChallenge] XR Device Simulator añadido a la escena.");
+        }
+
         // ------------------------------------------------------------------- rig
 
         // Instancia el prefab oficial "XR Origin (XR Rig)" (Starter Assets).
@@ -345,6 +450,129 @@ namespace XRChallenge
             }
             AssetDatabase.SaveAssets();
             Debug.Log("[XRChallenge] Escena guardada y agregada a Build Settings: " + RutaEscena);
+        }
+
+        // ------------------------------------------------------- verificación
+
+        // Recorre todos los criterios de aceptación de la rúbrica y lanza una
+        // excepción (EXIT ≠ 0 en batch) si alguno falla.
+        [MenuItem("XR Challenge/3. Verificar Escena")]
+        public static void Verify()
+        {
+            _fallos.Clear();
+            Debug.Log("[XRChallenge] == Verificacion de criterios de aceptacion ==");
+
+            // En batch Unity no carga escenas automáticamente: la abrimos explícitamente.
+            if (System.IO.File.Exists(RutaEscena))
+                EditorSceneManager.OpenScene(RutaEscena, OpenSceneMode.Single);
+
+            // Escena y build
+            Scene abierta = SceneManager.GetActiveScene();
+            Check(abierta.path == RutaEscena, "Escena abierta = " + abierta.path);
+            Check(EditorBuildSettings.scenes.Any(s => s.path == RutaEscena && s.enabled),
+                "Escena agregada y habilitada en Build Settings");
+
+            // Configuración
+            Check(GraphicsSettings.defaultRenderPipeline != null,
+                "URP activo en GraphicsSettings = " +
+                (GraphicsSettings.defaultRenderPipeline != null
+                    ? GraphicsSettings.defaultRenderPipeline.name : "NINGUNO"));
+
+            bool openXr = false;
+            if (EditorBuildSettings.TryGetConfigObject(XRGeneralSettings.k_SettingsKey,
+                    out XRGeneralSettingsPerBuildTarget perTarget) && perTarget != null)
+            {
+                var general = perTarget.SettingsForBuildTarget(BuildTargetGroup.Standalone);
+                if (general != null && general.Manager != null)
+                    openXr = general.Manager.activeLoaders.Any(
+                        l => l != null && l.GetType().Name.Contains("OpenXR"));
+            }
+            Check(openXr, "OpenXR habilitado en XR Plug-in Management (Standalone)");
+
+            // Escenario
+            Check(GameObject.Find("Piso") != null, "Piso presente");
+            Check(GameObject.Find("Piso") != null && GameObject.Find("Piso").GetComponent<Collider>() != null,
+                "Piso con Collider");
+            Check(GameObject.Find("Directional Light") != null, "Directional Light presente");
+            int puntual = UnityEngine.Object.FindObjectsByType<Light>(FindObjectsSortMode.None)
+                .Count(l => l.type == LightType.Point);
+            Check(puntual >= 1, "Point Light adicional presente (" + puntual + ")");
+            int muros = new[] { "Muro_Norte", "Muro_Sur", "Muro_Este", "Muro_Oeste" }
+                .Count(n => GameObject.Find(n) != null);
+            Check(muros == 4, "Muros perimetrales: " + muros + "/4");
+            int objetos = new[] { "CuboAgarre", "EsferaAgarre", "LlaveAgarre", "Cilindro", "Capsula", "Mesa" }
+                .Count(n => GameObject.Find(n) != null);
+            Check(objetos >= 5, "Objetos 3D distintos: " + objetos + " (minimo 5)");
+
+            var materiales = AssetDatabase.FindAssets("t:Material", new[] { "Assets/Materials" })
+                .Select(g => AssetDatabase.LoadAssetAtPath<Material>(AssetDatabase.GUIDToAssetPath(g)))
+                .Where(m => m != null).ToArray();
+            bool shaderUrp = materiales.Length > 0 && materiales.All(m =>
+                m.shader != null && m.shader.name.StartsWith("Universal Render Pipeline"));
+            Check(shaderUrp, "Materiales en Assets/Materials con shader URP/Lit: " + materiales.Length);
+
+            // Manipulables
+            var grabs = UnityEngine.Object.FindObjectsByType<XRGrabInteractable>(FindObjectsSortMode.None);
+            Check(grabs.Length >= 2, "XR Grab Interactable: " + grabs.Length + " objetos (minimo 2)");
+            foreach (var g in grabs)
+            {
+                var rb = g.GetComponent<Rigidbody>();
+                Check(rb != null && rb.useGravity, g.name + ": Rigidbody con Use Gravity");
+                Check(g.throwOnDetach, g.name + ": Throw On Detach activado");
+            }
+            var mesa = GameObject.Find("Mesa_Tablero");
+            Check(mesa != null && mesa.GetComponent<Collider>() != null,
+                "Mesa con Collider (los objetos no caen al vacio)");
+
+            // Interacción por rayo
+            var simples = UnityEngine.Object.FindObjectsByType<XRSimpleInteractable>(FindObjectsSortMode.None);
+            Check(simples.Length >= 2, "XR Simple Interactable: " + simples.Length + " (minimo 2)");
+            var toggle = UnityEngine.Object.FindFirstObjectByType<ToggleLuz>();
+            Check(toggle != null && toggle.luz != null,
+                "Boton_Luz -> ToggleLuz conectado a la Point Light por codigo");
+            var cambiar = UnityEngine.Object.FindFirstObjectByType<CambiarColor>();
+            Check(cambiar != null && cambiar.objetivo != null,
+                "Boton_Color -> CambiarColor conectado por codigo");
+
+            // Teletransporte (el campo estatico Piso solo se llena en Build();
+            // en batch que solo ejecuta Verify hay que buscarlo en la escena abierta)
+            var pisoVerify = GameObject.Find("Piso");
+            Check(pisoVerify != null && pisoVerify.GetComponent<TeleportationArea>() != null,
+                "Teleportation Area en el piso");
+            Check(UnityEngine.Object.FindFirstObjectByType<TeleportationProvider>() != null,
+                "Teleportation Provider en el rig");
+
+            // Contador
+            var contador = UnityEngine.Object.FindFirstObjectByType<ContadorLuces>();
+            Check(contador != null, "ContadorLuces presente");
+            Check(toggle != null && toggle.contador != null && toggle.contador == contador,
+                "Contador conectado al ToggleLuz por codigo");
+            var canvas = UnityEngine.Object.FindFirstObjectByType<Canvas>();
+            Check(canvas != null && canvas.renderMode == RenderMode.WorldSpace,
+                "Canvas del contador en World Space");
+            Check(UnityEngine.Object.FindObjectsByType<TextMeshProUGUI>(FindObjectsSortMode.None).Length >= 1,
+                "Texto TextMeshPro presente");
+
+            // Simulador y unicidad
+            Check(GameObject.Find("XR Device Simulator") != null,
+                "XR Device Simulator disponible en la escena");
+            Check(UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None).Length == 1,
+                "Una sola camara en la escena");
+            Check(UnityEngine.Object.FindObjectsByType<EventSystem>(FindObjectsSortMode.None).Length == 1,
+                "Un solo EventSystem");
+            Check(UnityEngine.Object.FindObjectsByType<XRInteractionManager>(FindObjectsSortMode.None).Length == 1,
+                "Un solo XR Interaction Manager");
+
+            if (_fallos.Count == 0)
+            {
+                Debug.Log("[XRChallenge] == VERIFICACION OK: todos los criterios cumplidos ==");
+            }
+            else
+            {
+                string resumen = string.Join("\n - ", _fallos);
+                Debug.LogError($"[XRChallenge] == VERIFICACION CON FALLOS ({_fallos.Count}):\n - {resumen}");
+                throw new Exception("Verificacion fallida: " + _fallos.Count + " criterios incumplidos.");
+            }
         }
     }
 }
