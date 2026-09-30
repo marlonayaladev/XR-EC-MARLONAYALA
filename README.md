@@ -1,5 +1,6 @@
 # XR Interaction Challenge — Escena `EC_XR_MARLONAYALA`
 
+
 Proyecto Unity para el challenge de interacción XR del curso **Laboratorio de Realidad
 Extendida (XR) para Videojuegos**, docente *Victor Alejandro Arroyo Castro*.
 
