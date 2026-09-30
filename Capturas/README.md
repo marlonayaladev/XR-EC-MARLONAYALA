@@ -1,4 +1,4 @@
-<img width="1920" height="1019" alt="image" src="https://github.com/user-attachments/assets/5296e7d3-faf5-4824-99f9-f87252b55754" /># Capturas de pantalla — XR Interaction Challenge
+Interaction Challenge
 
  
 
