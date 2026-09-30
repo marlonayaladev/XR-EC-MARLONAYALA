@@ -1,0 +1,51 @@
+# ===== Unity generado por el Editor =====
+/[Ll]ibrary/
+/[Tt]emp/
+/[Oo]bj/
+/[Bb]uild/
+/[Bb]uilds/
+/[Ll]ogs/
+/[Uu]ser[Ss]ettings/
+/[Mm]emoryCaptures/
+/[Rr]ecordings/
+
+# Logs de compilacion/batch usados en la evaluacion
+*.log
+
+# Archivos de build y reportes
+sysinfo.txt
+crashlytics-build.properties
+
+# ===== IDEs y dependencias (no son parte del proyecto Unity) =====
+*.csproj
+*.unityproj
+*.sln
+*.slnx
+*.suo
+*.tmp
+*.user
+*.userprefs
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+.vs/
+.idea/
+.vscode/
+.gradle/
+
+# ===== SO =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Packs de Unity (los regenera el Editor) =====
+*.unitypackage
+*.app
+
+# NOTA DEL PROYECTO:
+# Assets/, Packages/, ProjectSettings/ y todos los archivos .meta
+# NO se ignoran: deben subirse para que el repo se pueda clonar y abrir.
