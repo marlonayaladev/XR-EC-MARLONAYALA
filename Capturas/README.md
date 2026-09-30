@@ -1,27 +1,22 @@
-# Capturas de pantalla — XR Interaction Challenge
+<img width="1920" height="1019" alt="image" src="https://github.com/user-attachments/assets/5296e7d3-faf5-4824-99f9-f87252b55754" /># Capturas de pantalla — XR Interaction Challenge
 
-Carpeta destinada a las 3 capturas obligatorias del README. Coloca aquí los archivos
-con **exactamente** estos nombres (formato PNG):
+ 
 
 | Archivo         | Contenido requerido                                                              |
 |-----------------|----------------------------------------------------------------------------------|
-| `general.png`   | Vista general del escenario XR (piso, paredes, mesa, objetos con materiales)      |
-| `inspector.png` | Componentes XR en el Inspector (XR Grab Interactable o XR Origin / OpenXR)        |
-| `interaccion.png` | Una interacción funcionando (ej. el rayo encendiendo la Point Light "Boton_Luz") |
+| 1  | Vista general del escenario XR (piso, paredes, mesa, objetos con materiales)      |
 
-## Estado
+<img width="1920" height="1019" alt="image" src="https://github.com/user-attachments/assets/62b026f0-987b-45c9-9c43-3fb6c0d84307" />
 
-- [ ] PENDIENTE: captura `general.png`
-- [ ] PENDIENTE: captura `inspector.png`
-- [ ] PENDIENTE: captura `interaccion.png`
 
-## Cómo tomarlas (sugerido)
+| 2 | Componentes XR en el Inspector (XR Grab Interactable o XR Origin / OpenXR)        |
 
-1. Abre el proyecto en Unity 6000.3.10f1 y abre la escena `Assets/Scenes/EC_XR_MARLONAYALA.unity`.
-2. **general.png**: coloca la Scene View mostrando toda la sala y haz captura.
-3. **inspector.png**: selecciona el objeto `CuboAgarre` (o `EsferaAgarre`) y muestra el
-   Inspector con `XR Grab Interactable`, o selecciona el `XROrigin` con `NearFarInteractor`.
-4. **interaccion.png**: en Play Mode con el XR Device Simulator, apunta el rayo al
-   objeto `Boton_Luz` y captura el instante en que la Point Light se enciende.
+<img width="357" height="1017" alt="image" src="https://github.com/user-attachments/assets/a084b14a-68ce-45dc-83f7-d23ed1bcb0c4" />
 
-> Estos PNG no se generan por código: el usuario debe pegarlos antes de subir el repo.
+
+| 3 | Una interacción funcionando (ej. el rayo encendiendo la Point Light "Boton_Luz") |
+
+<img width="1911" height="994" alt="image" src="https://github.com/user-attachments/assets/a548aad8-3a72-40ce-93bd-633f5ceeff44" />
+
+
+ 
