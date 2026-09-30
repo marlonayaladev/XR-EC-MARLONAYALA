@@ -1,0 +1,317 @@
+// Etapa 2 y 3: construcción POR CÓDIGO de la escena XR (nada de YAML manual).
+// Menú: XR Challenge/2. Construir Escena
+// Batch: -executeMethod XRChallenge.XRSceneBuilder.Build
+// Es idempotente: cada ejecución reconstruye la escena desde cero (NewScene),
+// reutiliza los materiales existentes y no duplica la escena en Build Settings.
+using System;
+using System.Linq;
+using UnityEditor;
+using UnityEditor.SceneManagement;
+using UnityEngine;
+using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
+using UnityEngine.XR.Interaction.Toolkit;
+using UnityEngine.XR.Interaction.Toolkit.Interactables;
+using UnityEngine.XR.Interaction.Toolkit.UI;
+
+namespace XRChallenge
+{
+    public static class XRSceneBuilder
+    {
+        public const string NombreEscena = "EC_XR_MARLONAYALA";
+        public static readonly string RutaEscena = "Assets/Scenes/" + NombreEscena + ".unity";
+
+        // Referencias que usan las etapas posteriores (rayo, contador, teletransporte).
+        public static Light LuzPuntual { get; private set; }
+        public static GameObject Piso { get; private set; }
+
+        [MenuItem("XR Challenge/2. Construir Escena")]
+        public static void Build()
+        {
+            Debug.Log("[XRChallenge] Construyendo escena: " + RutaEscena);
+
+            if (!Application.isBatchMode)
+                EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo();
+
+            Scene escena = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+
+            CrearIluminacion();
+            Piso = CrearPiso();
+            CrearParedes();
+            CrearMesa();
+            CrearObjetosEscenario();
+            CrearObjetosManipulables();
+            InstanciarRig();
+            CrearInteractionManager();
+            CrearEventSystem();
+
+            // Etapas 4 y 5 (añadidas en fases posteriores de este script).
+
+            GuardarEscena(escena);
+        }
+
+        // ---------------------------------------------------------------- escenario
+
+        // Direccional + Point Light interactiva (la usará el Boton_Luz con el rayo).
+        static void CrearIluminacion()
+        {
+            var dirGo = new GameObject("Directional Light");
+            var dir = dirGo.AddComponent<Light>();
+            dir.type = LightType.Directional;
+            dir.intensity = 1.1f;
+            dir.color = Color.white;
+            dir.shadows = LightShadows.Soft;
+            dirGo.transform.rotation = Quaternion.Euler(50f, -30f, 0f);
+
+            var puntoGo = new GameObject("LuzInteractiva");
+            puntoGo.transform.position = new Vector3(0f, 2.7f, 1.2f);
+            LuzPuntual = puntoGo.AddComponent<Light>();
+            LuzPuntual.type = LightType.Point;
+            LuzPuntual.range = 9f;
+            LuzPuntual.intensity = 2.2f;
+            LuzPuntual.color = new Color(1f, 0.92f, 0.75f);
+            LuzPuntual.shadows = LightShadows.Soft;
+            Debug.Log("[XRChallenge] Iluminacion creada (Directional + Point 'LuzInteractiva').");
+        }
+
+        // Piso con BoxCollider (también sera el Teleportation Area en la Etapa 5).
+        static GameObject CrearPiso()
+        {
+            var piso = Primitiva(PrimitiveType.Cube, "Piso", null,
+                new Vector3(0f, -0.1f, 0f), new Vector3(12f, 0.2f, 12f));
+            piso.GetComponent<MeshRenderer>().sharedMaterial =
+                ObtenerMaterial("M_Piso", new Color(0.55f, 0.58f, 0.62f));
+            Debug.Log("[XRChallenge] Piso con Collider creado (12 x 12 m).");
+            return piso;
+        }
+
+        // 4 barreras perimetrales con material propio.
+        static void CrearParedes()
+        {
+            var mat = ObtenerMaterial("M_Muro", new Color(0.82f, 0.86f, 0.9f));
+            var datos = new[]
+            {
+                new { nombre = "Muro_Norte", pos = new Vector3(0f, 1.5f, 6f),   esc = new Vector3(12.2f, 3f, 0.2f) },
+                new { nombre = "Muro_Sur",   pos = new Vector3(0f, 1.5f, -6f),  esc = new Vector3(12.2f, 3f, 0.2f) },
+                new { nombre = "Muro_Este",  pos = new Vector3(6f, 1.5f, 0f),   esc = new Vector3(0.2f, 3f, 12.2f) },
+                new { nombre = "Muro_Oeste", pos = new Vector3(-6f, 1.5f, 0f),  esc = new Vector3(0.2f, 3f, 12.2f) },
+            };
+            foreach (var d in datos)
+            {
+                var muro = Primitiva(PrimitiveType.Cube, d.nombre, null, d.pos, d.esc);
+                muro.GetComponent<MeshRenderer>().sharedMaterial = mat;
+            }
+            Debug.Log("[XRChallenge] 4 muros perimetrales creados.");
+        }
+
+        // Mesa hecha de cubos (tablero + 4 patas), con Colliders.
+        static void CrearMesa()
+        {
+            var mesa = new GameObject("Mesa");
+            var mat = ObtenerMaterial("M_Mesa", new Color(0.45f, 0.3f, 0.18f));
+
+            var tablero = Primitiva(PrimitiveType.Cube, "Mesa_Tablero", mesa.transform,
+                new Vector3(0f, 0.9f, 1.5f), new Vector3(2.2f, 0.1f, 1.2f));
+            tablero.GetComponent<MeshRenderer>().sharedMaterial = mat;
+
+            foreach (float x in new[] { -1f, 1f })
+                foreach (float z in new[] { -0.5f, 0.5f })
+                {
+                    var pata = Primitiva(PrimitiveType.Cube, "Mesa_Pata", mesa.transform,
+                        new Vector3(x, 0.425f, 1.5f + z), new Vector3(0.1f, 0.85f, 0.1f));
+                    pata.GetComponent<MeshRenderer>().sharedMaterial = mat;
+                }
+            Debug.Log("[XRChallenge] Mesa de cubos creada (tablero a 0.95 m con Collider).");
+        }
+
+        // Cilindro y cápsula decorativos (cubren los 5+ objetos 3D de la rúbrica).
+        static void CrearObjetosEscenario()
+        {
+            var cilindro = Primitiva(PrimitiveType.Cylinder, "Cilindro", null,
+                new Vector3(2.6f, 0.5f, 2.6f), new Vector3(0.5f, 0.5f, 0.5f));
+            cilindro.GetComponent<MeshRenderer>().sharedMaterial =
+                ObtenerMaterial("M_Cilindro", new Color(0.15f, 0.65f, 0.35f));
+
+            var capsula = Primitiva(PrimitiveType.Capsule, "Capsula", null,
+                new Vector3(-2.6f, 0.5f, 2.6f), new Vector3(0.5f, 0.5f, 0.5f));
+            capsula.GetComponent<MeshRenderer>().sharedMaterial =
+                ObtenerMaterial("M_Capsula", new Color(0.55f, 0.25f, 0.8f));
+            Debug.Log("[XRChallenge] Objetos decorativos creados: Cilindro, Capsula.");
+        }
+
+        // 3 objetos manipulables sobre la mesa: cubo, esfera y llave.
+        static void CrearObjetosManipulables()
+        {
+            // 1) Cubo naranja
+            var cubo = Primitiva(PrimitiveType.Cube, "CuboAgarre", null,
+                new Vector3(-0.7f, 1.1f, 1.5f), Vector3.one * 0.3f);
+            cubo.GetComponent<MeshRenderer>().sharedMaterial =
+                ObtenerMaterial("M_Cubo", new Color(0.95f, 0.5f, 0.1f));
+            HacerManipulable(cubo);
+
+            // 2) Esfera azul
+            var esfera = Primitiva(PrimitiveType.Sphere, "EsferaAgarre", null,
+                new Vector3(0f, 1.1f, 1.5f), Vector3.one * 0.3f);
+            esfera.GetComponent<MeshRenderer>().sharedMaterial =
+                ObtenerMaterial("M_Esfera", new Color(0.15f, 0.4f, 0.9f));
+            HacerManipulable(esfera);
+
+            // 3) Llave dorada construida con primitivas (raíz con BoxCollider propio).
+            var llave = new GameObject("LlaveAgarre");
+            llave.transform.position = new Vector3(0.7f, 1.02f, 1.5f);
+            llave.transform.rotation = Quaternion.Euler(90f, 0f, 0f); // apoyada en la mesa
+            var collider = llave.AddComponent<BoxCollider>();
+            collider.center = Vector3.zero;
+            collider.size = new Vector3(0.14f, 0.78f, 0.14f);
+
+            var matLlave = ObtenerMaterial("M_Llave", new Color(0.95f, 0.8f, 0.2f));
+            var eje = Primitiva(PrimitiveType.Cylinder, "Llave_Eje", llave.transform,
+                Vector3.zero, new Vector3(0.06f, 0.17f, 0.06f));
+            eje.GetComponent<MeshRenderer>().sharedMaterial = matLlave;
+            var cabeza = Primitiva(PrimitiveType.Cube, "Llave_Cabeza", llave.transform,
+                new Vector3(0f, 0.28f, 0f), new Vector3(0.18f, 0.18f, 0.06f));
+            cabeza.GetComponent<MeshRenderer>().sharedMaterial = matLlave;
+            var diente1 = Primitiva(PrimitiveType.Cube, "Llave_Diente1", llave.transform,
+                new Vector3(0.07f, -0.22f, 0f), new Vector3(0.08f, 0.08f, 0.06f));
+            diente1.GetComponent<MeshRenderer>().sharedMaterial = matLlave;
+            var diente2 = Primitiva(PrimitiveType.Cube, "Llave_Diente2", llave.transform,
+                new Vector3(0.07f, -0.32f, 0f), new Vector3(0.08f, 0.1f, 0.06f));
+            diente2.GetComponent<MeshRenderer>().sharedMaterial = matLlave;
+            HacerManipulable(llave);
+
+            Debug.Log("[XRChallenge] 3 objetos manipulables creados: CuboAgarre, EsferaAgarre, LlaveAgarre.");
+        }
+
+        // Rigidbody con gravedad + XR Grab Interactable (movement razonable y throw activo).
+        static void HacerManipulable(GameObject go)
+        {
+            var rb = go.GetComponent<Rigidbody>();
+            if (rb == null)
+                rb = go.AddComponent<Rigidbody>();
+            rb.useGravity = true;
+            rb.mass = 1f;
+            rb.collisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+
+            var grab = go.GetComponent<XRGrabInteractable>();
+            if (grab == null)
+                grab = go.AddComponent<XRGrabInteractable>();
+            grab.movementType = XRBaseInteractable.MovementType.VelocityTracking;
+            grab.throwOnDetach = true;
+            grab.trackPosition = true;
+            grab.trackRotation = true;
+        }
+
+        // ------------------------------------------------------------------- rig
+
+        // Instancia el prefab oficial "XR Origin (XR Rig)" (Starter Assets).
+        static void InstanciarRig()
+        {
+            string rutaRig = null;
+            foreach (string guid in AssetDatabase.FindAssets("XR Origin t:Prefab"))
+            {
+                string ruta = AssetDatabase.GUIDToAssetPath(guid);
+                if (System.IO.Path.GetFileNameWithoutExtension(ruta) == "XR Origin (XR Rig)")
+                {
+                    rutaRig = ruta;
+                    break;
+                }
+            }
+            if (rutaRig == null)
+                throw new Exception("Prefab 'XR Origin (XR Rig)' no encontrado. ¿Se importo el sample Starter Assets?");
+
+            var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(rutaRig);
+            var rig = PrefabUtility.InstantiatePrefab(prefab) as GameObject;
+            rig.name = "XR Origin (XR Rig)";
+            rig.transform.position = new Vector3(0f, 0f, -2.5f);
+            rig.transform.rotation = Quaternion.identity;
+
+            // La escena arranca vacía: la única cámara debe ser la del rig.
+            var camaras = UnityEngine.Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            if (camaras.Length != 1)
+                Debug.LogWarning($"[XRChallenge] La escena tiene {camaras.Length} camaras (se esperaba solo la del XR Origin).");
+            else
+                Debug.Log("[XRChallenge] Camara unica del XR Origin verificada: " + camaras[0].name);
+        }
+
+        // Un solo XR Interaction Manager para toda la escena.
+        static void CrearInteractionManager()
+        {
+            if (UnityEngine.Object.FindFirstObjectByType<XRInteractionManager>() != null)
+            {
+                Debug.Log("[XRChallenge] Ya existia un XR Interaction Manager.");
+                return;
+            }
+            new GameObject("XR Interaction Manager").AddComponent<XRInteractionManager>();
+            Debug.Log("[XRChallenge] XR Interaction Manager creado.");
+        }
+
+        // Un solo EventSystem, con el módulo de entrada XR de UI.
+        static void CrearEventSystem()
+        {
+            if (UnityEngine.Object.FindFirstObjectByType<EventSystem>() != null)
+            {
+                Debug.Log("[XRChallenge] Ya existia un EventSystem.");
+                return;
+            }
+            var go = new GameObject("EventSystem");
+            go.AddComponent<EventSystem>();
+            go.AddComponent<XRUIInputModule>();
+            Debug.Log("[XRChallenge] EventSystem + XRUIInputModule creado.");
+        }
+
+        // --------------------------------------------------------------- utilidades
+
+        // Primitiva con collider; la posición es local (y mundial si no tiene padre).
+        static GameObject Primitiva(PrimitiveType tipo, string nombre, Transform padre,
+            Vector3 posicion, Vector3 escala)
+        {
+            var go = GameObject.CreatePrimitive(tipo);
+            go.name = nombre;
+            if (padre != null)
+                go.transform.SetParent(padre, false);
+            go.transform.localPosition = posicion;
+            go.transform.localScale = escala;
+            return go;
+        }
+
+        // Material URP/Lit persistido en Assets/Materials (reutiliza si ya existe).
+        static Material ObtenerMaterial(string nombre, Color color)
+        {
+            if (!AssetDatabase.IsValidFolder("Assets/Materials"))
+                AssetDatabase.CreateFolder("Assets", "Materials");
+
+            string ruta = "Assets/Materials/" + nombre + ".mat";
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(ruta);
+            if (mat == null)
+            {
+                var shader = Shader.Find("Universal Render Pipeline/Lit");
+                if (shader == null)
+                    throw new Exception("Shader 'Universal Render Pipeline/Lit' no encontrado (¿URP activo?).");
+                mat = new Material(shader);
+                AssetDatabase.CreateAsset(mat, ruta);
+            }
+            mat.SetColor("_BaseColor", color);
+            EditorUtility.SetDirty(mat);
+            return mat;
+        }
+
+        // Guarda la escena con el nombre exacto y la agrega a Build Settings.
+        static void GuardarEscena(Scene escena)
+        {
+            if (!AssetDatabase.IsValidFolder("Assets/Scenes"))
+                AssetDatabase.CreateFolder("Assets", "Scenes");
+
+            if (!EditorSceneManager.SaveScene(escena, RutaEscena))
+                throw new Exception("No se pudo guardar la escena en " + RutaEscena);
+
+            var escenas = EditorBuildSettings.scenes.ToList();
+            if (!escenas.Any(s => s.path == RutaEscena))
+            {
+                escenas.Add(new EditorBuildSettingsScene(RutaEscena, true));
+                EditorBuildSettings.scenes = escenas.ToArray();
+            }
+            AssetDatabase.SaveAssets();
+            Debug.Log("[XRChallenge] Escena guardada y agregada a Build Settings: " + RutaEscena);
+        }
+    }
+}
